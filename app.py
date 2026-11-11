@@ -159,25 +159,33 @@ def load_model():
     return model, checkpoint
 
 
+# The trained model is required for the dashboard. The FI-2010 dataset
+# is optional in cloud deployments until its redistribution terms are confirmed.
 try:
     with st.spinner("Initializing Quant Research Engine..."):
-        X_test, y_test = load_test_data()
         model, checkpoint = load_model()
-
 except Exception as error:
-    st.error(f"Initialization failed: {error}")
+    st.error(f"Model initialization failed: {error}")
     st.info(
-        "Check DATASET_ROOT, checkpoint location, loader import "
-        "and model architecture."
+        "Check the checkpoint location, model architecture, "
+        "and installed package versions."
     )
     st.stop()
 
+X_test = None
+y_test = None
+DATA_AVAILABLE = False
+DATA_ERROR = None
 
-MAX_INDEX = len(X_test) - 100
+try:
+    X_test, y_test = load_test_data()
+    DATA_AVAILABLE = len(X_test) >= 100
+    if not DATA_AVAILABLE:
+        DATA_ERROR = "Insufficient test data for a 100-step input window."
+except Exception as error:
+    DATA_ERROR = str(error)
 
-if MAX_INDEX < 0:
-    st.error("Insufficient test data for a 100-step input window.")
-    st.stop()
+MAX_INDEX = len(X_test) - 100 if DATA_AVAILABLE else -1
 
 
 # =========================================================
@@ -440,7 +448,12 @@ with st.sidebar:
     st.caption(f"Device: {DEVICE}")
     st.caption("Dataset: FI-2010")
     st.caption("Fold: 1")
-    st.caption(f"Test windows: {MAX_INDEX + 1:,}")
+    st.caption(
+        f"Test windows: {MAX_INDEX + 1:,}"
+        if DATA_AVAILABLE else "Test windows: Not configured"
+    )
+    if not DATA_AVAILABLE:
+        st.caption("Historical inference: unavailable in this deployment")
 
     st.divider()
     st.caption("Historical research model")
@@ -486,7 +499,10 @@ if page == "Overview":
         st.markdown('<div class="panel-head"><span class="panel-title">MODEL PERFORMANCE</span><span class="panel-tag">HELD-OUT TEST</span></div>', unsafe_allow_html=True)
         m1, m2 = st.columns(2)
         m1.metric("MACRO F1", "0.6091")
-        m2.metric("TEST WINDOWS", f"{MAX_INDEX + 1:,}")
+        m2.metric(
+            "TEST WINDOWS",
+            f"{MAX_INDEX + 1:,}" if DATA_AVAILABLE else "N/A"
+        )
         m3, m4 = st.columns(2)
         m3.metric("1-STEP ACC.", "63.42%")
         m4.metric("10-STEP ACC.", "64.78%")
@@ -500,42 +516,50 @@ if page == "Overview":
     st.markdown("")
     st.markdown('<div class="panel-head"><span class="panel-title">MODEL SIGNAL MATRIX</span><span class="panel-tag">ACTUAL FI-2010 INFERENCE · HISTORICAL WINDOW</span></div>', unsafe_allow_html=True)
 
-    if "overview_index" not in st.session_state:
-        st.session_state.overview_index = min(1000, MAX_INDEX)
+    if DATA_AVAILABLE:
+        if "overview_index" not in st.session_state:
+            st.session_state.overview_index = min(1000, MAX_INDEX)
 
-    index = min(st.session_state.overview_index, MAX_INDEX)
-    probs, attention, predicted, actual = run_prediction(index)
+        index = min(st.session_state.overview_index, MAX_INDEX)
+        probs, attention, predicted, actual = run_prediction(index)
 
-    cards = st.columns(5, gap="small")
-    for i, col in enumerate(cards):
-        prediction = CLASSES[int(predicted[i])]
-        confidence = float(probs[i].max())
-        color = {"UP": "#39e2a1", "DOWN": "#ff597d", "STATIONARY": "#f4c66b"}[prediction]
-        with col:
-            st.markdown(f"""
-            <div class="signal" style="--accent:{color}">
-              <div class="signal-h">FORECAST / T+{HORIZONS[i]}</div>
-              <div class="signal-v">{prediction}</div>
-              <div class="signal-p">{confidence:.1%} MODEL PROBABILITY</div>
-            </div>
-            """, unsafe_allow_html=True)
+        cards = st.columns(5, gap="small")
+        for i, col in enumerate(cards):
+            prediction = CLASSES[int(predicted[i])]
+            confidence = float(probs[i].max())
+            color = {"UP": "#39e2a1", "DOWN": "#ff597d", "STATIONARY": "#f4c66b"}[prediction]
+            with col:
+                st.markdown(f"""
+                <div class="signal" style="--accent:{color}">
+                  <div class="signal-h">FORECAST / T+{HORIZONS[i]}</div>
+                  <div class="signal-v">{prediction}</div>
+                  <div class="signal-p">{confidence:.1%} MODEL PROBABILITY</div>
+                </div>
+                """, unsafe_allow_html=True)
 
-    st.markdown("")
-    index_new = st.slider("Historical replay index", 0, MAX_INDEX, int(index), key="overview_sample_slider")
-    if index_new != index:
-        st.session_state.overview_index = index_new
-        st.rerun()
+        st.markdown("")
+        index_new = st.slider("Historical replay index", 0, MAX_INDEX, int(index), key="overview_sample_slider")
+        if index_new != index:
+            st.session_state.overview_index = index_new
+            st.rerun()
 
-    c1, c2 = st.columns([1.35, 1], gap="medium")
-    with c1:
-        st.markdown("#### Probability surface")
-        prob_df = pd.DataFrame(probs, columns=CLASSES, index=[f"T+{h}" for h in HORIZONS])
-        st.bar_chart(prob_df, height=230)
-    with c2:
-        st.markdown("#### Window diagnostics")
-        st.metric("Correct horizons", f"{int(np.sum(predicted == actual))} / 5")
-        st.metric("Sequence tensor", "100 × 144")
-        st.metric("Attention mass · last 5", f"{attention[-5:].sum():.2%}")
+        c1, c2 = st.columns([1.35, 1], gap="medium")
+        with c1:
+            st.markdown("#### Probability surface")
+            prob_df = pd.DataFrame(probs, columns=CLASSES, index=[f"T+{h}" for h in HORIZONS])
+            st.bar_chart(prob_df, height=230)
+        with c2:
+            st.markdown("#### Window diagnostics")
+            st.metric("Correct horizons", f"{int(np.sum(predicted == actual))} / 5")
+            st.metric("Sequence tensor", "100 × 144")
+            st.metric("Attention mass · last 5", f"{attention[-5:].sum():.2%}")
+    else:
+        st.info(
+            "Historical FI-2010 inference is temporarily unavailable in this "
+            "public deployment because the dataset has not been configured. "
+            "The trained model checkpoint is loaded, but no prediction is "
+            "shown without the required historical input data."
+        )
 
     st.markdown("""
     <div class="footnote">
@@ -557,51 +581,57 @@ elif page == "Forecast Explorer":
         "This is historical model inference, not live market forecasting."
     )
 
-    index = st.slider(
-        "Test sample",
-        0,
-        MAX_INDEX,
-        min(1000, MAX_INDEX)
-    )
+    if not DATA_AVAILABLE:
+        st.warning(
+            "Historical FI-2010 test data is not configured in this deployment. "
+            "The forecast explorer will be available when the dataset is added."
+        )
+    else:
+        index = st.slider(
+            "Test sample",
+            0,
+            MAX_INDEX,
+            min(1000, MAX_INDEX)
+        )
 
-    probs, attention, predicted, actual = run_prediction(index)
+        probs, attention, predicted, actual = run_prediction(index)
 
-    rows = []
+        rows = []
 
-    for i, horizon in enumerate(HORIZONS):
-        rows.append({
-            "Horizon": horizon,
-            "Prediction": CLASSES[int(predicted[i])],
-            "Actual": CLASSES[int(actual[i])],
-            "Up": probs[i, 0],
-            "Stationary": probs[i, 1],
-            "Down": probs[i, 2],
-            "Correct": bool(predicted[i] == actual[i])
-        })
+        for i, horizon in enumerate(HORIZONS):
+            rows.append({
+                "Horizon": horizon,
+                "Prediction": CLASSES[int(predicted[i])],
+                "Actual": CLASSES[int(actual[i])],
+                "Up": probs[i, 0],
+                "Stationary": probs[i, 1],
+                "Down": probs[i, 2],
+                "Correct": bool(predicted[i] == actual[i])
+            })
 
-    st.dataframe(
-        pd.DataFrame(rows).style.format({
-            "Up": "{:.2%}",
-            "Stationary": "{:.2%}",
-            "Down": "{:.2%}"
-        }),
-        hide_index=True,
-        use_container_width=True
-    )
+        st.dataframe(
+            pd.DataFrame(rows).style.format({
+                "Up": "{:.2%}",
+                "Stationary": "{:.2%}",
+                "Down": "{:.2%}"
+            }),
+            hide_index=True,
+            use_container_width=True
+        )
 
-    horizon = st.selectbox("Select horizon", HORIZONS, index=4)
-    h = HORIZONS.index(horizon)
+        horizon = st.selectbox("Select horizon", HORIZONS, index=4)
+        h = HORIZONS.index(horizon)
 
-    st.markdown("### Class Probabilities")
+        st.markdown("### Class Probabilities")
 
-    st.bar_chart(
-        pd.DataFrame({
-            "Class": CLASSES,
-            "Probability": probs[h]
-        }),
-        x="Class",
-        y="Probability"
-    )
+        st.bar_chart(
+            pd.DataFrame({
+                "Class": CLASSES,
+                "Probability": probs[h]
+            }),
+            x="Class",
+            y="Probability"
+        )
 
 
 # =========================================================
@@ -616,35 +646,41 @@ elif page == "Explainability":
         "Attention weights show learned temporal weighting, not causal explanations."
     )
 
-    index = st.slider(
-        "Select sample",
-        0,
-        MAX_INDEX,
-        min(1000, MAX_INDEX),
-        key="explainability_index"
-    )
+    if not DATA_AVAILABLE:
+        st.warning(
+            "Temporal attention visualizations require the FI-2010 test dataset, "
+            "which is not configured in this deployment."
+        )
+    else:
+        index = st.slider(
+            "Select sample",
+            0,
+            MAX_INDEX,
+            min(1000, MAX_INDEX),
+            key="explainability_index"
+        )
 
-    probs, attention, predicted, actual = run_prediction(index)
+        probs, attention, predicted, actual = run_prediction(index)
 
-    attention_df = pd.DataFrame({
-        "Time Step": np.arange(1, 101),
-        "Attention": attention
-    })
+        attention_df = pd.DataFrame({
+            "Time Step": np.arange(1, 101),
+            "Attention": attention
+        })
 
-    st.markdown("### Temporal Attention Profile")
+        st.markdown("### Temporal Attention Profile")
 
-    st.line_chart(
-        attention_df,
-        x="Time Step",
-        y="Attention",
-        height=350
-    )
+        st.line_chart(
+            attention_df,
+            x="Time Step",
+            y="Attention",
+            height=350
+        )
 
-    a, b, c = st.columns(3)
+        a, b, c = st.columns(3)
 
-    a.metric("Final Step Attention", f"{attention[-1] * 100:.2f}%")
-    b.metric("Final Five Steps", f"{attention[-5:].sum() * 100:.2f}%")
-    c.metric("Attention Sum", f"{attention.sum():.4f}")
+        a.metric("Final Step Attention", f"{attention[-1] * 100:.2f}%")
+        b.metric("Final Five Steps", f"{attention[-5:].sum() * 100:.2f}%")
+        c.metric("Attention Sum", f"{attention.sum():.4f}")
 
 
 # =========================================================
