@@ -1,0 +1,40 @@
+# Python environment
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Secrets
+.env
+.env.*
+!.env.example
+secrets.toml
+
+# OS files
+.DS_Store
+
+# Local backups
+app_backup.py
+app_lob_*.py
+
+# Experimental results: keep only deployment checkpoint
+results/*
+!results/checkpoints/
+results/checkpoints/*
+!results/checkpoints/best_cf1_model.pt
+
+# Editor settings
+.vscode/
+**/.vscode/
+.idea/
+
+# Local FI-2010 dataset (keep out of GitHub)
+deployment_data/
+
