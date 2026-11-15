@@ -29,12 +29,18 @@ results/*
 !results/checkpoints/
 results/checkpoints/*
 !results/checkpoints/best_cf1_model.pt
+!results/checkpoints/deploy_fold1_attention.pt
 
 # Editor settings
 .vscode/
 **/.vscode/
 .idea/
 
-# Local FI-2010 dataset (keep out of GitHub)
-deployment_data/
+# Local FI-2010 dataset (keep out of GitHub), except the small demo slice
+deployment_data/*
+!deployment_data/demo/
 
+
+# Local-only files
+.claude/
+internship_submission/

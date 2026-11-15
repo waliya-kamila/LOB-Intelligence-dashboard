@@ -19,9 +19,26 @@ ROOT = Path(__file__).resolve().parent
 
 DATASET_ROOT = ROOT / "deployment_data"
 
+# Small contiguous slice of the FI-2010 Fold 1 test set (CC BY 4.0),
+# used when the full test file is not present (e.g. Streamlit Cloud).
+DEMO_SLICE_PATH = DATASET_ROOT / "demo" / "fi2010_cf1_test_slice.npz"
+
+# Fold 1 CNN-BiGRU-Attention model from the multi-fold experiment
+# (best validation epoch 18, held-out test macro F1 0.6556).
 CHECKPOINT_PATH = (
-    ROOT / "results" / "checkpoints" / "best_cf1_model.pt"
+    ROOT / "results" / "checkpoints" / "deploy_fold1_attention.pt"
 )
+
+# Held-out Fold 1 test metrics of the deployed checkpoint
+# (source: results/evaluation_multifold/detailed_metrics.csv).
+DEPLOYED_METRICS = pd.DataFrame({
+    # Zero-padded so charts keep numeric order.
+    "Horizon": ["01", "02", "03", "05", "10"],
+    "Accuracy": [0.7147, 0.6345, 0.6580, 0.6716, 0.6813],
+    "Macro F1": [0.6624, 0.6168, 0.6509, 0.6725, 0.6754],
+})
+DEPLOYED_MACRO_F1 = 0.6556
+FULL_TEST_WINDOWS = 38_298
 
 HORIZONS = [1, 2, 3, 5, 10]
 CLASSES = ["UP", "STATIONARY", "DOWN"]
@@ -138,9 +155,14 @@ hr{border-color:#1b3044}
 
 @st.cache_data
 def load_test_data():
-    loader = FI2010Loader(str(DATASET_ROOT))
-    X, y = loader.load_fold(1, split="Testing")
-    return X, y
+    """Full Fold 1 test file if present, otherwise the bundled demo slice."""
+    try:
+        loader = FI2010Loader(str(DATASET_ROOT))
+        X, y = loader.load_fold(1, split="Testing")
+        return X, y, "Full Fold 1 test set"
+    except FileNotFoundError:
+        demo = np.load(DEMO_SLICE_PATH)
+        return demo["X"], demo["y"], "Fold 1 test demo slice"
 
 
 @st.cache_resource
@@ -176,9 +198,10 @@ X_test = None
 y_test = None
 DATA_AVAILABLE = False
 DATA_ERROR = None
+DATA_SOURCE = "Not configured"
 
 try:
-    X_test, y_test = load_test_data()
+    X_test, y_test, DATA_SOURCE = load_test_data()
     DATA_AVAILABLE = len(X_test) >= 100
     if not DATA_AVAILABLE:
         DATA_ERROR = "Insufficient test data for a 100-step input window."
@@ -251,7 +274,7 @@ def market_ticker():
     change = ((new_price - old_price) / old_price) * 100
 
     items = [
-        ("BTC / USD", f"${new_price:,.2f}", f"{change:+.2f}%"),
+        ("REF. PRICE", f"{new_price:,.2f}", f"{change:+.2f}% · SIMULATED"),
         ("BID VOLUME", f"{random.randint(12, 48)}.{random.randint(1,9)}K", "SIMULATED"),
         ("ASK VOLUME", f"{random.randint(10, 45)}.{random.randint(1,9)}K", "SIMULATED"),
         ("SPREAD", f"{random.uniform(0.01, 0.09):.3f}", "SIMULATED"),
@@ -448,6 +471,7 @@ with st.sidebar:
     st.caption(f"Device: {DEVICE}")
     st.caption("Dataset: FI-2010")
     st.caption("Fold: 1")
+    st.caption(f"Data: {DATA_SOURCE}")
     st.caption(
         f"Test windows: {MAX_INDEX + 1:,}"
         if DATA_AVAILABLE else "Test windows: Not configured"
@@ -498,16 +522,13 @@ if page == "Overview":
     with right:
         st.markdown('<div class="panel-head"><span class="panel-title">MODEL PERFORMANCE</span><span class="panel-tag">HELD-OUT TEST</span></div>', unsafe_allow_html=True)
         m1, m2 = st.columns(2)
-        m1.metric("MACRO F1", "0.6091")
-        m2.metric(
-            "TEST WINDOWS",
-            f"{MAX_INDEX + 1:,}" if DATA_AVAILABLE else "N/A"
-        )
+        m1.metric("MACRO F1", f"{DEPLOYED_MACRO_F1:.4f}")
+        m2.metric("TEST WINDOWS", f"{FULL_TEST_WINDOWS:,}")
         m3, m4 = st.columns(2)
-        m3.metric("1-STEP ACC.", "63.42%")
-        m4.metric("10-STEP ACC.", "64.78%")
+        m3.metric("1-STEP ACC.", f"{DEPLOYED_METRICS['Accuracy'].iloc[0]:.2%}")
+        m4.metric("10-STEP ACC.", f"{DEPLOYED_METRICS['Accuracy'].iloc[-1]:.2%}")
         st.markdown('<div class="micro-label" style="margin-top:10px">FIVE-HORIZON CLASSIFICATION / THREE CLASSES</div>', unsafe_allow_html=True)
-        st.progress(0.6091, text="Overall Macro F1")
+        st.progress(DEPLOYED_MACRO_F1, text="Overall Macro F1")
 
     st.markdown("")
     st.markdown('<div class="panel-head"><span class="panel-title">ORDER BOOK DEPTH</span><span class="panel-tag">SIMULATED BID / ASK LADDER</span></div>', unsafe_allow_html=True)
@@ -546,7 +567,8 @@ if page == "Overview":
         c1, c2 = st.columns([1.35, 1], gap="medium")
         with c1:
             st.markdown("#### Probability surface")
-            prob_df = pd.DataFrame(probs, columns=CLASSES, index=[f"T+{h}" for h in HORIZONS])
+            # Zero-padded labels keep horizons in numeric order on the chart.
+            prob_df = pd.DataFrame(probs, columns=CLASSES, index=[f"T+{h:02d}" for h in HORIZONS])
             st.bar_chart(prob_df, height=230)
         with c2:
             st.markdown("#### Window diagnostics")
@@ -616,7 +638,7 @@ elif page == "Forecast Explorer":
                 "Down": "{:.2%}"
             }),
             hide_index=True,
-            use_container_width=True
+            width="stretch"
         )
 
         horizon = st.selectbox("Select horizon", HORIZONS, index=4)
@@ -692,18 +714,14 @@ elif page == "Performance Lab":
     st.title("Performance Lab")
 
     st.caption(
-        "Previously computed complete held-out Fold 1 test metrics."
+        "Previously computed metrics on the complete held-out FI-2010 test sets."
     )
 
-    performance = pd.DataFrame({
-        "Horizon": ["1", "2", "3", "5", "10"],
-        "Accuracy": [0.6342, 0.6018, 0.6083, 0.6207, 0.6478],
-        "Macro F1": [0.5963, 0.5889, 0.6059, 0.6209, 0.6337]
-    })
+    performance = DEPLOYED_METRICS
 
     a, b = st.columns(2)
-    a.metric("Overall Macro F1", "0.6091")
-    b.metric("Test Sequences", "38,298")
+    a.metric("Deployed model · Fold 1 Macro F1", f"{DEPLOYED_MACRO_F1:.4f}")
+    b.metric("Fold 1 Test Sequences", f"{FULL_TEST_WINDOWS:,}")
 
     st.markdown("### Accuracy by Horizon")
     st.bar_chart(performance, x="Horizon", y="Accuracy")
@@ -717,7 +735,75 @@ elif page == "Performance Lab":
             "Macro F1": "{:.4f}"
         }),
         hide_index=True,
-        use_container_width=True
+        width="stretch"
+    )
+
+    st.divider()
+    st.markdown("### Multi-Fold Ablation: Attention vs No Attention")
+    st.caption(
+        "Anchored FI-2010 folds 1–3, identical training settings. "
+        "Source: results/multifold_results.csv."
+    )
+
+    multifold = pd.DataFrame({
+        "Fold": [1, 2, 3],
+        "CNN-BiGRU (no attention)": [0.6578, 0.7526, 0.7580],
+        "CNN-BiGRU + Attention": [0.6556, 0.7523, 0.7537],
+    })
+    multifold["Difference"] = (
+        multifold["CNN-BiGRU + Attention"]
+        - multifold["CNN-BiGRU (no attention)"]
+    )
+    st.dataframe(
+        multifold.style.format({
+            "CNN-BiGRU (no attention)": "{:.4f}",
+            "CNN-BiGRU + Attention": "{:.4f}",
+            "Difference": "{:+.4f}",
+        }),
+        hide_index=True,
+        width="stretch"
+    )
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Mean F1 · no attention", "0.7228 ± 0.056")
+    c2.metric("Mean F1 · attention", "0.7205 ± 0.056")
+    c3.metric("Attention on final step", "94.8%")
+
+    st.markdown("### Temporal Ablation (Fold 1)")
+    st.caption(
+        "Macro F1 after replacing one region of the 100-step input window with training-set feature means."
+    )
+    st.dataframe(
+        pd.DataFrame({
+            "Masked region": ["None (original)", "Early 0–25%",
+                              "Middle 25–75%", "Recent 75–100%"],
+            "No attention": [0.6578, 0.6584, 0.6586, 0.1943],
+            "Attention": [0.6556, 0.6558, 0.6561, 0.1837],
+        }).style.format({"No attention": "{:.4f}", "Attention": "{:.4f}"}),
+        hide_index=True,
+        width="stretch"
+    )
+
+    st.markdown("### Probability Calibration (Temperature Scaling)")
+    st.dataframe(
+        pd.DataFrame({
+            "Model": ["No attention", "Attention"],
+            "ECE before": [0.0868, 0.0852],
+            "ECE after": [0.0279, 0.0391],
+            "NLL before": [0.6998, 0.7304],
+            "NLL after": [0.6052, 0.6397],
+        }).style.format({c: "{:.4f}" for c in
+                         ["ECE before", "ECE after", "NLL before", "NLL after"]}),
+        hide_index=True,
+        width="stretch"
+    )
+
+    st.info(
+        "Key findings: (1) temporal attention gives no significant gain over "
+        "the same model without attention; (2) learned attention collapses "
+        "onto the most recent time steps, matching the temporal ablation; "
+        "(3) the raw models are over-confident, and temperature scaling "
+        "reduces calibration error by more than half."
     )
 
 
@@ -758,6 +844,12 @@ elif page == "Architecture & Research":
     - Sequence length: 100
     - Horizons: 1, 2, 3, 5, 10
     - Classes: Up, Stationary, Down
+    - Horizon k means k × 10 order-book events ahead (10, 20, 30, 50, 100)
+
+    Data: Ntakaris et al. (2018), *Benchmark dataset for mid-price forecasting
+    of limit order book data with machine learning methods*, Journal of
+    Forecasting 37(8). Licensed CC BY 4.0. The public deployment uses a
+    10,100-observation slice of the Fold 1 test set.
     """)
 
     st.divider()
