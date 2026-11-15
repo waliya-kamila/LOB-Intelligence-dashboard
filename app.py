@@ -40,6 +40,19 @@ DEPLOYED_METRICS = pd.DataFrame({
 DEPLOYED_MACRO_F1 = 0.6556
 FULL_TEST_WINDOWS = 38_298
 
+# Stage 2: early detection of toxic order flow (Binance BTCUSDT futures)
+TOX_DEMO_PATH = DATASET_ROOT / "demo" / "toxicity_btcusdt_2024-10-01.npz"
+TOX_CKPT_PATH = ROOT / "results" / "checkpoints" / "toxicity_foldB_lob_trades.pt"
+TOX_RESULTS = ROOT / "reports" / "toxicity_results"
+TOX_WINDOW = 100
+TOX_MODEL_NAMES = {
+    "VPIN": "1 VPIN",
+    "Past toxicity (persistence)": "2 Persistence",
+    "Logistic regression (11 features)": "3 Logistic reg.",
+    "CNN-BiGRU-Attention (LOB only)": "4 Deep · book",
+    "CNN-BiGRU-Attention (LOB + trades)": "5 Deep · book+trades",
+}
+
 HORIZONS = [1, 2, 3, 5, 10]
 CLASSES = ["UP", "STATIONARY", "DOWN"]
 
@@ -209,6 +222,44 @@ except Exception as error:
     DATA_ERROR = str(error)
 
 MAX_INDEX = len(X_test) - 100 if DATA_AVAILABLE else -1
+
+
+@st.cache_resource
+def load_toxicity():
+    """Stage 2 toxicity detector + 2-hour demo slice; scores every second once."""
+    ckpt = torch.load(TOX_CKPT_PATH, map_location="cpu", weights_only=True)
+    tox_model = TemporalCNNGRUAttention(
+        input_features=ckpt["input_features"], num_horizons=1, num_classes=2, dropout=0.4
+    )
+    tox_model.load_state_dict(ckpt["model_state_dict"])
+    tox_model.eval()
+
+    demo = dict(np.load(TOX_DEMO_PATH))
+    X = torch.from_numpy(demo["X"])
+    n = len(X) - TOX_WINDOW + 1
+    probs, attention = [], []
+    with torch.no_grad():
+        for start in range(0, n, 512):
+            idx = range(start, min(start + 512, n))
+            batch = torch.stack([X[i:i + TOX_WINDOW] for i in idx])
+            logits, att = tox_model(batch)
+            probs.append(torch.softmax(logits[:, 0, :], dim=-1)[:, 1].numpy())
+            attention.append(att.numpy())
+    first = TOX_WINDOW - 1
+    seconds = int(demo["start"]) + np.arange(first, len(X))
+    frame = pd.DataFrame({
+        "second": seconds,
+        "time": pd.to_datetime("2024-10-01") + pd.to_timedelta(seconds, unit="s"),
+        "p_toxic": np.concatenate(probs),
+        "toxic": demo["y"][first:].astype(int),
+        "lp_loss": demo["lp_loss"][first:],
+        "vpin": demo["vpin"][first:],
+        "mid": demo["mid"][first:],
+    })
+    return frame, np.concatenate(attention), ckpt
+
+
+TOX_AVAILABLE = TOX_DEMO_PATH.exists() and TOX_CKPT_PATH.exists()
 
 
 # =========================================================
@@ -460,6 +511,7 @@ with st.sidebar:
             "Forecast Explorer",
             "Explainability",
             "Performance Lab",
+            "Toxicity Lab (Stage 2)",
             "Architecture & Research"
         ]
     )
@@ -478,6 +530,11 @@ with st.sidebar:
     )
     if not DATA_AVAILABLE:
         st.caption("Historical inference: unavailable in this deployment")
+
+    st.divider()
+    st.markdown("**STAGE 2 DETECTOR**")
+    st.caption("🟢 Toxicity model loaded" if TOX_AVAILABLE else "Toxicity model unavailable")
+    st.caption("Data: Binance BTCUSDT, 1 Oct 2024")
 
     st.divider()
     st.caption("Historical research model")
@@ -811,9 +868,128 @@ elif page == "Performance Lab":
 # ARCHITECTURE & RESEARCH
 # =========================================================
 
+elif page == "Toxicity Lab (Stage 2)":
+
+    st.title("Toxicity Lab · Early Detection of Toxic Order Flow")
+    st.caption(
+        "Stage 2 · Binance BTCUSDT perpetual futures · 10-level order book + every trade "
+        "with its aggressor side (Tardis.dev free data, six days in 2024)."
+    )
+    st.info(
+        "Toxic flow = trades that liquidity providers lose money on. For every second, the label is the "
+        "total markout loss of all trades in the **next 30 seconds**; the top 20% of seconds are toxic. "
+        "The model only sees the past 100 seconds, so every correct warning comes **before** the toxic trades."
+    )
+
+    results = pd.read_csv(TOX_RESULTS / "exposure_results.csv")
+    results["Method"] = results["model"].map(TOX_MODEL_NAMES)
+    mean_auc = results.groupby("Method")["auc_roc"].mean()
+
+    a, b, c, d = st.columns(4)
+    a.metric("Deep model AUC", f"{mean_auc['5 Deep · book+trades']:.3f}")
+    b.metric("VPIN AUC", f"{mean_auc['1 VPIN']:.3f}",
+             f"{mean_auc['1 VPIN'] - mean_auc['5 Deep · book+trades']:+.3f} vs deep", delta_color="off")
+    c.metric("Order book only", f"{mean_auc['4 Deep · book']:.3f}")
+    d.metric("Logistic regression", f"{mean_auc['3 Logistic reg.']:.3f}")
+
+    st.markdown("### Results on unseen test days")
+    st.caption("AUC-ROC (0.5 = chance) · Fold A tests on 1 Aug 2024, Fold B on 1 Oct 2024 · walk-forward training on earlier days only.")
+    order = list(TOX_MODEL_NAMES.values())
+    chart = results.pivot(index="Method", columns="fold", values="auc_roc").reindex(order)
+    chart.columns = [f"Fold {f}" for f in chart.columns]
+    st.bar_chart(chart, stack=False, horizontal=True, height=330)
+    st.dataframe(
+        results[["fold", "test_day", "Method", "auc_roc", "pr_auc", "precision", "recall", "f1"]]
+        .rename(columns={"fold": "Fold", "test_day": "Test day", "auc_roc": "AUC-ROC", "pr_auc": "PR-AUC",
+                         "precision": "Precision", "recall": "Recall", "f1": "F1"}),
+        hide_index=True, width="stretch",
+    )
+
+    st.divider()
+    st.markdown("### Live replay · real model inference")
+    if not TOX_AVAILABLE:
+        st.warning("The Stage 2 demo data or model checkpoint is missing in this deployment.")
+    else:
+        frame, tox_attention, tox_ckpt = load_toxicity()
+
+        def _auc(y, s):
+            order_ = np.argsort(s, kind="mergesort")
+            ranks = np.empty(len(s)); ranks[order_] = np.arange(1, len(s) + 1)
+            n1 = y.sum(); n0 = len(y) - n1
+            return float((ranks[y == 1].sum() - n1 * (n1 + 1) / 2) / (n1 * n0))
+
+        live_auc = _auc(frame["toxic"].to_numpy(), frame["p_toxic"].to_numpy())
+        vpin_auc = _auc(frame["toxic"].to_numpy(), frame["vpin"].to_numpy())
+        st.caption(
+            f"The Fold B detector (trained on {', '.join(tox_ckpt['train_days'])}) scores every second of "
+            f"20:00–22:00 UTC on {tox_ckpt['test_day']}, a day it never saw. On this 2-hour slice: "
+            f"model AUC **{live_auc:.3f}**, VPIN AUC **{vpin_auc:.3f}**, "
+            f"toxic seconds {frame['toxic'].mean():.0%}."
+        )
+
+        minute = st.slider("Start of 10-minute view (minutes after 20:00 UTC)", 0, 110, 60, step=5)
+        view = frame[(frame["second"] >= 72000 + minute * 60) & (frame["second"] < 72000 + (minute + 10) * 60)].copy()
+        vmin, vmax = frame["vpin"].min(), frame["vpin"].max()
+        view["Model P(toxic)"] = view["p_toxic"].rolling(5, min_periods=1).mean()
+        view["Toxic (label)"] = view["toxic"].astype(float)
+        view["VPIN (rescaled)"] = (view["vpin"] - vmin) / max(vmax - vmin, 1e-9)
+        st.line_chart(view, x="time", y=["Toxic (label)", "Model P(toxic)", "VPIN (rescaled)"], height=320)
+
+        stamps = view["time"].dt.strftime("%H:%M:%S").tolist()
+        chosen = st.select_slider("Inspect one second (UTC)", options=stamps, value=stamps[min(300, len(stamps) - 1)])
+        k = int(view.index[stamps.index(chosen)])
+        row = frame.loc[k]
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Time (UTC)", row["time"].strftime("%H:%M:%S"))
+        m2.metric("Model P(toxic)", f"{row['p_toxic']:.1%}")
+        m3.metric("Actual next 30 s", "TOXIC" if row["toxic"] else "normal")
+        m4.metric("LP loss next 30 s", f"{row['lp_loss']:,.0f} bps·BTC")
+        st.markdown("#### Attention over the 100-second input window")
+        st.line_chart(pd.DataFrame({"Second in window (100 = now)": np.arange(1, TOX_WINDOW + 1),
+                                    "Attention": tox_attention[k]}),
+                      x="Second in window (100 = now)", y="Attention", height=220)
+
+    st.divider()
+    st.markdown("### What triggers a warning · Integrated Gradients")
+    groups = pd.read_csv(TOX_RESULTS / "ig_group_importance.csv")
+    groups["group"] = groups["group"].str.replace(" (distance)", "", regex=False).str.replace(" (60 s)", "", regex=False)
+    groups = groups.rename(columns={"group": "Feature group", "share_toxic": "Toxic seconds",
+                                    "share_nontoxic": "Non-toxic seconds"}).set_index("Feature group")
+    st.bar_chart(groups * 100, stack=False, horizontal=True, height=330)
+    top = pd.read_csv(TOX_RESULTS / "ig_feature_importance.csv").head(10)
+    top["share"] = top["share"].map(lambda v: f"{v:.1%}")
+    left, right = st.columns([1, 1.3])
+    with left:
+        st.dataframe(top.rename(columns={"feature": "Top input", "share": "Share"}), hide_index=True, width="stretch")
+    with right:
+        st.write(
+            "- About **half** of the evidence comes from the 10-level order book (prices and depth, led by the best ask).\n"
+            "- About **half** comes from the last 1–2 minutes of trading intensity (60-s volatility and volume).\n"
+            "- The flow-context share is **twice as large** for toxic seconds as for normal ones.\n"
+            "- Evidence is spread over the whole 100-s window; attention does not collapse as in Stage 1."
+        )
+
+    st.markdown("### Robustness · loss per unit volume")
+    intensity = pd.read_csv(TOX_RESULTS / "intensity_results.csv")
+    intensity["Method"] = intensity["model"].map(TOX_MODEL_NAMES)
+    st.dataframe(intensity.groupby("Method")["auc_roc"].mean().reindex(order).rename("Mean AUC-ROC").to_frame()
+                 .style.format("{:.3f}"), width="stretch")
+    st.caption(
+        "When toxicity is measured per unit of volume, no method predicts it well (AUC ≈ 0.6): the order book "
+        "reveals how much liquidity providers stand to lose, not how costly the average trade will be."
+    )
+    st.warning(
+        "Honest caveats: one instrument and six days (pilot scale); logistic regression on engineered features "
+        "performs on par with the deep model; markout losses do not prove that a counterparty was informed."
+    )
+
 elif page == "Architecture & Research":
 
     st.title("Architecture & Research")
+    st.markdown(
+        "**Project:** Early Detection of Toxic Order Flow Using Explainable Deep Learning on "
+        "Full Limit Order Book Dynamics  ·  Stage 1: FI-2010 benchmark  ·  Stage 2: Binance BTCUSDT toxicity vs VPIN"
+    )
 
     st.markdown("### Model Architecture")
 
@@ -850,6 +1026,16 @@ elif page == "Architecture & Research":
     of limit order book data with machine learning methods*, Journal of
     Forecasting 37(8). Licensed CC BY 4.0. The public deployment uses a
     10,100-observation slice of the Fold 1 test set.
+    """)
+
+    st.markdown("### Stage 2 Dataset (Toxicity Lab)")
+    st.write("""
+    - Binance USD-M BTCUSDT perpetual futures, 1 Mar, 1 Apr, 1 May, 1 Jul, 1 Aug, 1 Oct 2024
+    - Source: Tardis.dev free first-day-of-month datasets (25-level book snapshots + trades with aggressor side)
+    - 1-second grid · 100-second windows · 49 channels (10-level book, trade flow, 60-s flow context)
+    - Label: top 20% of liquidity-provider markout loss over the next 30 s
+    - Benchmark: VPIN from exact aggressor-signed volume
+    - The public deployment uses normalised model inputs for 20:00–22:00 UTC on 1 Oct 2024 (test day)
     """)
 
     st.divider()
@@ -898,6 +1084,6 @@ st.markdown("""
 ">
     ◈ LOB INTELLIGENCE · QUANT RESEARCH TERMINAL<br>
     CNN · BIDIRECTIONAL GRU · TEMPORAL ATTENTION<br>
-    HISTORICAL FI-2010 MODEL · SIMULATED MARKET VISUALS
+    STAGE 1: FI-2010 FORECASTING · STAGE 2: BTCUSDT TOXIC-FLOW DETECTION · SIMULATED MARKET VISUALS
 </div>
 """, unsafe_allow_html=True)

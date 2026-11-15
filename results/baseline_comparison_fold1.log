@@ -1,0 +1,49 @@
+Loading held-out test data...
+Test sequences: 38298
+
+============================================================
+EVALUATING: CNN Only
+============================================================
+Horizon 1 | Accuracy: 0.3212 | Macro F1: 0.2967
+Horizon 2 | Accuracy: 0.3290 | Macro F1: 0.2927
+Horizon 3 | Accuracy: 0.3471 | Macro F1: 0.3369
+Horizon 4 | Accuracy: 0.3867 | Macro F1: 0.3338
+Horizon 5 | Accuracy: 0.4458 | Macro F1: 0.3711
+
+============================================================
+EVALUATING: GRU Only
+============================================================
+Horizon 1 | Accuracy: 0.5164 | Macro F1: 0.4709
+Horizon 2 | Accuracy: 0.5137 | Macro F1: 0.4945
+Horizon 3 | Accuracy: 0.5121 | Macro F1: 0.5065
+Horizon 4 | Accuracy: 0.5184 | Macro F1: 0.5153
+Horizon 5 | Accuracy: 0.5523 | Macro F1: 0.5307
+
+============================================================
+EVALUATING: CNN-GRU without Attention
+============================================================
+Horizon 1 | Accuracy: 0.6573 | Macro F1: 0.6130
+Horizon 2 | Accuracy: 0.6004 | Macro F1: 0.5881
+Horizon 3 | Accuracy: 0.6228 | Macro F1: 0.6186
+Horizon 4 | Accuracy: 0.6381 | Macro F1: 0.6393
+Horizon 5 | Accuracy: 0.6560 | Macro F1: 0.6489
+
+============================================================
+EVALUATING: CNN-GRU-Attention (Proposed)
+============================================================
+Horizon 1 | Accuracy: 0.6342 | Macro F1: 0.5963
+Horizon 2 | Accuracy: 0.6018 | Macro F1: 0.5889
+Horizon 3 | Accuracy: 0.6083 | Macro F1: 0.6059
+Horizon 4 | Accuracy: 0.6207 | Macro F1: 0.6209
+Horizon 5 | Accuracy: 0.6478 | Macro F1: 0.6337
+
+===========================================================================
+FINAL HELD-OUT TEST COMPARISON
+===========================================================================
+CNN Only                            | Accuracy: 0.3660 | Macro F1: 0.3263
+GRU Only                            | Accuracy: 0.5226 | Macro F1: 0.5036
+CNN-GRU without Attention           | Accuracy: 0.6349 | Macro F1: 0.6216
+CNN-GRU-Attention (Proposed)        | Accuracy: 0.6226 | Macro F1: 0.6091
+
+BASELINE COMPARISON COMPLETED
+.venv/bin/python -m src.evaluation.evaluate_baselines  187.58s user 9.40s system 78% cpu 4:10.29 total

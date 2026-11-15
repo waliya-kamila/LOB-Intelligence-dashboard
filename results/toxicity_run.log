@@ -1,0 +1,72 @@
+Device: mps | label: exposure | output: /Users/waliya/Projects/TOXIC-ORDER-FLOW/results/toxicity_exposure
+
+Fold A: threshold 212.252 bps, VPIN bucket 381.4 BTC, test toxic rate 0.164 (80,589 windows)
+  fold A lob_trades epoch 1: loss 0.6121 val AUC 0.7334 (11s)
+  fold A lob_trades epoch 2: loss 0.5911 val AUC 0.7077 (10s)
+  fold A lob_trades epoch 3: loss 0.5617 val AUC 0.6789 (10s)
+  fold A lob_trades epoch 4: loss 0.4994 val AUC 0.6372 (10s)
+  fold A lob_only epoch 1: loss 0.6275 val AUC 0.7125 (11s)
+  fold A lob_only epoch 2: loss 0.5839 val AUC 0.6892 (10s)
+  fold A lob_only epoch 3: loss 0.5497 val AUC 0.6624 (10s)
+  fold A lob_only epoch 4: loss 0.4950 val AUC 0.6461 (10s)
+  VPIN                                     AUC 0.6531  PR-AUC 0.2832  F1 0.3565
+  Past toxicity (persistence)              AUC 0.5605  PR-AUC 0.2450  F1 0.3009
+  Logistic regression (11 features)        AUC 0.7392  PR-AUC 0.3498  F1 0.3681
+  CNN-BiGRU-Attention (LOB + trades)       AUC 0.7402  PR-AUC 0.3569  F1 0.3608
+  CNN-BiGRU-Attention (LOB only)           AUC 0.7304  PR-AUC 0.3377  F1 0.3628
+
+Fold B: threshold 161.755 bps, VPIN bucket 334.5 BTC, test toxic rate 0.200 (81,773 windows)
+  fold B lob_trades epoch 1: loss 0.6033 val AUC 0.7211 (16s)
+  fold B lob_trades epoch 2: loss 0.5805 val AUC 0.7031 (18s)
+  fold B lob_trades epoch 3: loss 0.5491 val AUC 0.6733 (23s)
+  fold B lob_trades epoch 4: loss 0.4945 val AUC 0.6750 (31s)
+  fold B lob_only epoch 1: loss 0.6143 val AUC 0.7036 (20s)
+  fold B lob_only epoch 2: loss 0.5764 val AUC 0.7042 (18s)
+  fold B lob_only epoch 3: loss 0.5412 val AUC 0.6879 (19s)
+  fold B lob_only epoch 4: loss 0.4931 val AUC 0.6797 (21s)
+  fold B lob_only epoch 5: loss 0.4492 val AUC 0.6730 (19s)
+  VPIN                                     AUC 0.5811  PR-AUC 0.3051  F1 0.3017
+  Past toxicity (persistence)              AUC 0.5933  PR-AUC 0.3553  F1 0.3934
+  Logistic regression (11 features)        AUC 0.7914  PR-AUC 0.4633  F1 0.5267
+  CNN-BiGRU-Attention (LOB + trades)       AUC 0.7942  PR-AUC 0.4646  F1 0.5233
+  CNN-BiGRU-Attention (LOB only)           AUC 0.7768  PR-AUC 0.4513  F1 0.5036
+
+Saved /Users/waliya/Projects/TOXIC-ORDER-FLOW/results/toxicity_exposure/toxicity_results.csv
+IG mean completeness error: 0.00783
+Group shares (toxic): {'Ask prices (distance)': 0.144, 'Ask volumes': 0.104, 'Bid prices (distance)': 0.159, 'Bid volumes': 0.058, 'Mid-price return': 0.015, 'Trade flow': 0.04, 'Flow context (60 s)': 0.479}
+Level shares L1..L10: [0.075, 0.048, 0.048, 0.045, 0.052, 0.045, 0.047, 0.031, 0.044, 0.03]
+IG share last 10 s: 0.052  attention last step: 0.007
+Top features: ['ctx_volatility_60s', 'ctx_log_volume_60s', 'trade_buy_vol', 'ask_dist_L1', 'ask_vol_L1', 'bid_dist_L9', 'ctx_VPIN', 'ask_dist_L5', 'bid_dist_L6', 'bid_dist_L7']
+Device: mps | label: intensity | output: /Users/waliya/Projects/TOXIC-ORDER-FLOW/results/toxicity
+
+Fold A: threshold 2.089 bps, VPIN bucket 381.4 BTC, test toxic rate 0.157 (80,589 windows)
+  fold A lob_trades epoch 1: loss 0.6820 val AUC 0.5653 (13s)
+  fold A lob_trades epoch 2: loss 0.6713 val AUC 0.5497 (14s)
+  fold A lob_trades epoch 3: loss 0.6485 val AUC 0.5410 (15s)
+  fold A lob_trades epoch 4: loss 0.6069 val AUC 0.5067 (16s)
+  fold A lob_only epoch 1: loss 0.6851 val AUC 0.5552 (15s)
+  fold A lob_only epoch 2: loss 0.6682 val AUC 0.5440 (23s)
+  fold A lob_only epoch 3: loss 0.6430 val AUC 0.5405 (16s)
+  fold A lob_only epoch 4: loss 0.5949 val AUC 0.5140 (24s)
+  VPIN                                     AUC 0.5878  PR-AUC 0.2173  F1 0.2720
+  Past toxicity (persistence)              AUC 0.5097  PR-AUC 0.1692  F1 0.2693
+  Logistic regression (11 features)        AUC 0.6103  PR-AUC 0.2186  F1 0.2847
+  CNN-BiGRU-Attention (LOB + trades)       AUC 0.6086  PR-AUC 0.2166  F1 0.2781
+  CNN-BiGRU-Attention (LOB only)           AUC 0.5831  PR-AUC 0.1963  F1 0.2818
+
+Fold B: threshold 1.914 bps, VPIN bucket 334.5 BTC, test toxic rate 0.170 (81,773 windows)
+  fold B lob_trades epoch 1: loss 0.6776 val AUC 0.6179 (20s)
+  fold B lob_trades epoch 2: loss 0.6649 val AUC 0.5868 (19s)
+  fold B lob_trades epoch 3: loss 0.6457 val AUC 0.5746 (18s)
+  fold B lob_trades epoch 4: loss 0.6053 val AUC 0.5575 (20s)
+  fold B lob_only epoch 1: loss 0.6793 val AUC 0.6147 (19s)
+  fold B lob_only epoch 2: loss 0.6628 val AUC 0.5925 (17s)
+  fold B lob_only epoch 3: loss 0.6362 val AUC 0.5765 (17s)
+  fold B lob_only epoch 4: loss 0.5893 val AUC 0.5501 (24s)
+  VPIN                                     AUC 0.5429  PR-AUC 0.2155  F1 0.2639
+  Past toxicity (persistence)              AUC 0.5159  PR-AUC 0.1878  F1 0.2902
+  Logistic regression (11 features)        AUC 0.6124  PR-AUC 0.2512  F1 0.3236
+  CNN-BiGRU-Attention (LOB + trades)       AUC 0.6208  PR-AUC 0.2501  F1 0.3309
+  CNN-BiGRU-Attention (LOB only)           AUC 0.6098  PR-AUC 0.2349  F1 0.3184
+
+Saved /Users/waliya/Projects/TOXIC-ORDER-FLOW/results/toxicity/toxicity_results.csv

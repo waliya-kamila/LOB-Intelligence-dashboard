@@ -1,0 +1,4 @@
+class,fold_a,fold_b,common_features,jaccard_similarity
+UP,1,2,15,0.6
+UP,1,3,16,0.6666666666666666
+UP,2,3,16,0.6666666666666666

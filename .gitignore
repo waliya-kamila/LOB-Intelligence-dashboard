@@ -24,12 +24,9 @@ secrets.toml
 app_backup.py
 app_lob_*.py
 
-# Experimental results: keep only deployment checkpoint
-results/*
-!results/checkpoints/
-results/checkpoints/*
-!results/checkpoints/best_cf1_model.pt
-!results/checkpoints/deploy_fold1_attention.pt
+# Experimental results (Stage 1 + Stage 2) are published in full.
+# Only the development-split scratch outputs and stray logs stay local.
+results/toxicity_dev/
 
 # Editor settings
 .vscode/

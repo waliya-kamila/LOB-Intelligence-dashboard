@@ -1,0 +1,3 @@
+model,mean_confidence,mean_up_probability,mean_stationary_probability,mean_down_probability,accuracy
+CNN-GRU-Attention,0.8362197,0.37290144,0.24721752,0.37988102,0.7502460012734183
+CNN-GRU-NoAttention,0.854778,0.3928325,0.22238004,0.38478744,0.7646394875455826

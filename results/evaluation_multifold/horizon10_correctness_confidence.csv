@@ -1,0 +1,5 @@
+model,correct,mean_confidence,sample_count
+CNN-GRU-Attention,0,0.7122723,25889
+CNN-GRU-Attention,1,0.8774813,77769
+CNN-GRU-NoAttention,0,0.7359798,24397
+CNN-GRU-NoAttention,1,0.8913447,79261

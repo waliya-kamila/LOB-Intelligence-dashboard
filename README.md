@@ -76,7 +76,13 @@ Mean test AUC-ROC over the two folds:
 | **CNN-BiGRU-Attention, order book + trades** | **0.767** |
 
 Integrated Gradients attributes about half of each toxicity warning to the order book's price and depth
-structure and half to recent (60-s) volatility and volume. Detailed tables are in `reports/toxicity_results/`.
+structure and half to recent (60-s) volatility and volume. Summary tables are in `reports/toxicity_results/`;
+every raw output (predictions, scores, checkpoints, attributions) is in `results/toxicity_exposure/` and
+`results/toxicity/`, and all Stage 1 outputs are in `results/`.
+
+The dashboard's **Toxicity Lab (Stage 2)** page runs the Fold B toxicity detector live on 20:00–22:00 UTC of
+the 1 Oct 2024 test day (`deployment_data/demo/toxicity_btcusdt_2024-10-01.npz`, built with
+`python -m scripts.make_toxicity_demo`), next to VPIN and the realised toxicity.
 
 ```bash
 python -m scripts.fetch_tardis                              # ~780 MB of raw data into data_crypto/raw

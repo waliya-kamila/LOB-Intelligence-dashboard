@@ -1,0 +1,149 @@
+{
+  "A": {
+    "train": [
+      "2024-03-01",
+      "2024-04-01",
+      "2024-05-01"
+    ],
+    "val": "2024-07-01",
+    "test": "2024-08-01",
+    "toxicity_threshold_bps": 2.0893514869440155,
+    "vpin_bucket_btc": 381.41621699999996,
+    "test_windows": 80589,
+    "test_toxic_rate": 0.15658464554715903,
+    "val_toxic_rate": 0.12344820858027852,
+    "logistic_coefficients": {
+      "spread": -0.0149,
+      "L1_imbalance": -0.0079,
+      "depth_imbalance": 0.0179,
+      "flow_imbalance_60s": 0.0337,
+      "abs_flow_imbalance_60s": -0.0504,
+      "log_volume_60s": 0.1123,
+      "return_60s": 0.024,
+      "abs_return_60s": -0.0505,
+      "volatility_60s": 0.1511,
+      "VPIN": 0.0831,
+      "past_toxicity": 0.0146
+    },
+    "lob_trades_best_epoch": 1,
+    "lob_trades_log": [
+      {
+        "epoch": 1,
+        "train_loss": 0.6820101861936431,
+        "val_auc": 0.5652878864900681
+      },
+      {
+        "epoch": 2,
+        "train_loss": 0.6712983795006814,
+        "val_auc": 0.5496781970258248
+      },
+      {
+        "epoch": 3,
+        "train_loss": 0.6485453331154861,
+        "val_auc": 0.5410372832808821
+      },
+      {
+        "epoch": 4,
+        "train_loss": 0.6068885471490151,
+        "val_auc": 0.5066816279226809
+      }
+    ],
+    "lob_only_best_epoch": 1,
+    "lob_only_log": [
+      {
+        "epoch": 1,
+        "train_loss": 0.6851197178966029,
+        "val_auc": 0.5551645126868457
+      },
+      {
+        "epoch": 2,
+        "train_loss": 0.6681672291460885,
+        "val_auc": 0.5440044657532462
+      },
+      {
+        "epoch": 3,
+        "train_loss": 0.643014349745246,
+        "val_auc": 0.540549299989408
+      },
+      {
+        "epoch": 4,
+        "train_loss": 0.5948881165302525,
+        "val_auc": 0.5139799534708823
+      }
+    ]
+  },
+  "B": {
+    "train": [
+      "2024-03-01",
+      "2024-04-01",
+      "2024-05-01",
+      "2024-07-01"
+    ],
+    "val": "2024-08-01",
+    "test": "2024-10-01",
+    "toxicity_threshold_bps": 1.91357986203695,
+    "vpin_bucket_btc": 334.5466472499999,
+    "test_windows": 81773,
+    "test_toxic_rate": 0.16977486456409818,
+    "val_toxic_rate": 0.17566747948359307,
+    "logistic_coefficients": {
+      "spread": -0.0146,
+      "L1_imbalance": -0.01,
+      "depth_imbalance": 0.03,
+      "flow_imbalance_60s": -0.0056,
+      "abs_flow_imbalance_60s": -0.0561,
+      "log_volume_60s": 0.1454,
+      "return_60s": 0.0409,
+      "abs_return_60s": -0.0572,
+      "volatility_60s": 0.1689,
+      "VPIN": 0.0833,
+      "past_toxicity": 0.0306
+    },
+    "lob_trades_best_epoch": 1,
+    "lob_trades_log": [
+      {
+        "epoch": 1,
+        "train_loss": 0.6775863244809617,
+        "val_auc": 0.617858551066276
+      },
+      {
+        "epoch": 2,
+        "train_loss": 0.6648686977062067,
+        "val_auc": 0.5868172330637119
+      },
+      {
+        "epoch": 3,
+        "train_loss": 0.6457336851204022,
+        "val_auc": 0.5745883502238914
+      },
+      {
+        "epoch": 4,
+        "train_loss": 0.6052586898648589,
+        "val_auc": 0.5575070172570131
+      }
+    ],
+    "lob_only_best_epoch": 1,
+    "lob_only_log": [
+      {
+        "epoch": 1,
+        "train_loss": 0.6792547332666488,
+        "val_auc": 0.6146959123609711
+      },
+      {
+        "epoch": 2,
+        "train_loss": 0.6628053228164169,
+        "val_auc": 0.5925341667646987
+      },
+      {
+        "epoch": 3,
+        "train_loss": 0.63615080911739,
+        "val_auc": 0.5765278963659295
+      },
+      {
+        "epoch": 4,
+        "train_loss": 0.5893074928543094,
+        "val_auc": 0.5501279750411306
+      }
+    ]
+  }
+}
