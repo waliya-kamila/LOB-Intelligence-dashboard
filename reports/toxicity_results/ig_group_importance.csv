@@ -1,0 +1,8 @@
+group,share_toxic,share_nontoxic
+Ask prices (distance),0.1441,0.1665
+Ask volumes,0.1044,0.192
+Bid prices (distance),0.159,0.205
+Bid volumes,0.0577,0.1547
+Mid-price return,0.0153,0.0123
+Trade flow,0.0401,0.0566
+Flow context (60 s),0.4794,0.2129

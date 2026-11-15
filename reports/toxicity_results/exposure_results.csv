@@ -1,0 +1,11 @@
+fold,model,test_day,auc_roc,pr_auc,precision,recall,f1,base_rate
+A,VPIN,2024-08-01,0.6531,0.2832,0.2596,0.5685,0.3565,0.164
+A,Past toxicity (persistence),2024-08-01,0.5605,0.245,0.2433,0.3942,0.3009,0.164
+A,Logistic regression (11 features),2024-08-01,0.7392,0.3498,0.2348,0.8514,0.3681,0.164
+A,CNN-BiGRU-Attention (LOB + trades),2024-08-01,0.7402,0.3569,0.2287,0.8532,0.3608,0.164
+A,CNN-BiGRU-Attention (LOB only),2024-08-01,0.7304,0.3377,0.2291,0.8708,0.3628,0.164
+B,VPIN,2024-10-01,0.5811,0.3051,0.2976,0.3058,0.3017,0.1998
+B,Past toxicity (persistence),2024-10-01,0.5933,0.3553,0.3154,0.5226,0.3934,0.1998
+B,Logistic regression (11 features),2024-10-01,0.7914,0.4633,0.4463,0.6425,0.5267,0.1998
+B,CNN-BiGRU-Attention (LOB + trades),2024-10-01,0.7942,0.4646,0.4004,0.755,0.5233,0.1998
+B,CNN-BiGRU-Attention (LOB only),2024-10-01,0.7768,0.4513,0.3907,0.7082,0.5036,0.1998

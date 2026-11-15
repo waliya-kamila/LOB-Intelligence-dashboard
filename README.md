@@ -53,6 +53,39 @@ Held-out test macro F1 (mean over the 5 horizons):
 - Integrated Gradients: spread and mid-price features dominate, with 14 of the top-20 features shared by all three folds.
 - Temperature scaling cuts expected calibration error by 54–68% at horizon k = 10.
 
+## Stage 2: Early Detection of Toxic Order Flow
+
+FI-2010 has no trade records, so toxicity is studied on **Binance BTCUSDT perpetual futures**
+(Tardis.dev free data, six days in 2024: 1 Mar, 1 Apr, 1 May, 1 Jul, 1 Aug, 1 Oct), which include
+a 25-level order book and every trade with its aggressor side.
+
+- **Label:** liquidity providers' markout loss (30-s markouts) on all trades in the next 30 s; the top 20% of
+  seconds (threshold from training days) are *toxic*. The model only sees data up to time t, so every
+  correct warning comes before the toxic trades happen.
+- **Benchmark:** VPIN from exact aggressor-signed volume (bucket = 1/1000 of daily volume, 50-bucket window).
+- **Protocol:** walk-forward folds — A: train Mar–May, validate Jul, test Aug; B: train Mar–Jul, validate Aug, test Oct.
+
+Mean test AUC-ROC over the two folds:
+
+| Method | AUC-ROC |
+|---|---|
+| VPIN | 0.617 |
+| Past toxicity (persistence) | 0.577 |
+| Logistic regression (11 engineered features) | 0.765 |
+| CNN-BiGRU-Attention, order book only | 0.754 |
+| **CNN-BiGRU-Attention, order book + trades** | **0.767** |
+
+Integrated Gradients attributes about half of each toxicity warning to the order book's price and depth
+structure and half to recent (60-s) volatility and volume. Detailed tables are in `reports/toxicity_results/`.
+
+```bash
+python -m scripts.fetch_tardis                              # ~780 MB of raw data into data_crypto/raw
+python -m src.toxicity.prepare                              # 1-second arrays per day
+TOX_LABEL=exposure python -m src.toxicity.experiment        # main experiment
+TOX_LABEL=exposure python -m src.toxicity.explain           # Integrated Gradients
+TOX_LABEL=intensity python -m src.toxicity.experiment       # robustness label
+```
+
 ## Dataset Setup
 
 The project uses the FI-2010 benchmark dataset.
